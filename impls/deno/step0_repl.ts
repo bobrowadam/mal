@@ -1,3 +1,5 @@
+import { readStr } from './reader.ts';
+
 const PROMPT = "user> "
 
 async function read(): Promise<string> {
@@ -8,7 +10,7 @@ async function read(): Promise<string> {
 }
 
 function evalString(s: string) {
-  return s;
+  return readStr(s);
 }
 
 async function print(s: string): Promise<void> {
@@ -16,7 +18,7 @@ async function print(s: string): Promise<void> {
 }
 
 async function rep() {
-  print(evalString(await read()));
+  print(JSON.stringify(evalString(await read())));
 }
 
 async function main(): Promise<void> {
