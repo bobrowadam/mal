@@ -35,7 +35,7 @@ async function rep() {
 
 async function main(): Promise<void> {
   while (true) {
-    await rep()
+    await rep().catch(e => console.log(e))
   }
 }
 
