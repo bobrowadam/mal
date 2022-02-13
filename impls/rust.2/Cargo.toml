@@ -8,11 +8,13 @@ edition = "2021"
 [dependencies]
 regex = "1.5.4"
 rustyline = "9.1.2"
+lazy_static = "1.4.0"
+itertools = "0.10.3"
 
 [[bin]]
 name = "step0_repl"
 path = "step0_repl.rs"
 
 [[bin]]
-name = "step1_repl"
-path = "step1_repl.rs"
+name = "step1_read_print"
+path = "step1_read_print.rs"
