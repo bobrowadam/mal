@@ -1,9 +1,24 @@
+use crate::mal_types::MalAtom::KeyWord;
+use crate::mal_types::MalAtom::Symbol;
+use crate::mal_types::MalAtom::Number;
+use crate::mal_types::MalAtom::MString;
+use crate::mal_types::MalAtom::WithMeta;
+use crate::mal_types::MalAtom::Deref;
+use crate::mal_types::MalAtom::SpliceUnQuote;
+use crate::mal_types::MalAtom::UnQuote;
+use crate::mal_types::MalAtom::QuasiQuote;
+use crate::mal_types::MalAtom::Quote;
+use crate::mal_types::MalSeq::MHashMap;
+use crate::mal_types::MalSeq::Vector;
+use crate::MalType;
+use crate::mal_types::MalAtom::Nil;
+use crate::mal_types::MalSeq::List;
+use crate::MalType::MalAtom;
+use crate::MalType::MalSeq;
 use lazy_static::__Deref;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::cell::RefCell;
-
-use crate::mal_types::MalType;
 
 type Index = usize;
 
@@ -46,21 +61,21 @@ fn read_form(reader: &Reader) -> Result<MalType, String> {
     };
 
     match current {
-        "None" => Ok(MalType::MalNil),
+        "None" => Ok(MalAtom(Nil)),
         "(" => {
             reader.next();
             match read_seq(&reader, MalSeqType::MalList) {
                 Ok(v) => Ok(v),
                 Err(e) => Err(e),
             }
-        },
+        }
         "[" => {
             reader.next();
             match read_seq(&reader, MalSeqType::MalVector) {
                 Ok(v) => Ok(v),
                 Err(e) => Err(e),
             }
-        },
+        }
         "{" => {
             reader.next();
             match read_seq(&reader, MalSeqType::MalHashMap) {
@@ -72,12 +87,16 @@ fn read_form(reader: &Reader) -> Result<MalType, String> {
     }
 }
 
-enum MalSeqType { MalVector, MalList, MalHashMap }
+enum MalSeqType {
+    MalVector,
+    MalList,
+    MalHashMap,
+}
 fn read_seq(reader: &Reader, seq_type: MalSeqType) -> Result<MalType, String> {
     let seq_limitor = match seq_type {
         MalSeqType::MalList => ")",
         MalSeqType::MalVector => "]",
-        MalSeqType::MalHashMap => "}"
+        MalSeqType::MalHashMap => "}",
     };
     let mut res: Vec<MalType> = vec![];
     let mut reached_eof = false;
@@ -89,7 +108,7 @@ fn read_seq(reader: &Reader, seq_type: MalSeqType) -> Result<MalType, String> {
             } else {
                 false
             }
-        },
+        }
         None => {
             reached_eof = true;
             true
@@ -102,9 +121,9 @@ fn read_seq(reader: &Reader, seq_type: MalSeqType) -> Result<MalType, String> {
         Err(String::from("EOF"))
     } else {
         match seq_type {
-            MalSeqType::MalList => Ok(MalType::MalList(res)),
-            MalSeqType::MalVector => Ok(MalType::MalVector(res)),
-            MalSeqType::MalHashMap => Ok(MalType::MalHashMap(res)),
+            MalSeqType::MalList => Ok(MalSeq(List(res))),
+            MalSeqType::MalVector => Ok(MalSeq(Vector(res))),
+            MalSeqType::MalHashMap => Ok(MalSeq(MHashMap(res))),
         }
     }
 }
@@ -122,28 +141,27 @@ fn read_atom(reader: &Reader) -> Result<MalType, String> {
     };
 
     match current_token_value {
-        "None" => Ok(MalType::MalNil),
-        "+" => Ok(MalType::MalPlus),
-        "-" => Ok(MalType::MalMinus),
-        "*" => Ok(MalType::MalMul),
-        "/" => Ok(MalType::MalDev),
-        "'" => Ok(MalType::MalQuote(Box::new(read_form(reader).unwrap()))),
-        "`" => Ok(MalType::MalQuasiQuote(Box::new(read_form(reader).unwrap()))),
-        "~" => Ok(MalType::MalUnQuote(Box::new(read_form(reader).unwrap()))),
-        "~@" => Ok(MalType::MalSpliceUnQuote(Box::new(read_form(reader).unwrap()))),
-        "@" => Ok(MalType::MalDeref(Box::new(read_form(reader).unwrap()))),
-        "^" => Ok(MalType::MalWithMeta(Box::new(read_form(reader).unwrap()), Box::new(read_form(reader).unwrap()))),
+        "None" => Ok(MalAtom(Nil)),
+        "'" => Ok(MalAtom(Quote(Box::new(read_form(reader).unwrap())))),
+        "`" => Ok(MalAtom(QuasiQuote(Box::new(read_form(reader).unwrap())))),
+        "~" => Ok(MalAtom(UnQuote(Box::new(read_form(reader).unwrap())))),
+        "~@" => Ok(MalAtom(SpliceUnQuote(Box::new(read_form(reader).unwrap())))),
+        "@" => Ok(MalAtom(Deref(Box::new(read_form(reader).unwrap())))),
+        "^" => Ok(MalAtom(WithMeta(
+            Box::new(read_form(reader).unwrap()),
+            Box::new(read_form(reader).unwrap()),
+        ))),
         _ => {
             if INT_RE.is_match(&current_token_value) {
-                Ok(MalType::MalNumber(
-                    current_token_value.parse::<i64>().unwrap(),
-                ))
+                Ok(MalAtom(Number(current_token_value.parse::<i64>().unwrap())))
             } else if STR_RE.is_match(&current_token_value) {
-                Ok(MalType::MalString(current_token_value.to_string()))
+                Ok(MalAtom(MString(current_token_value.to_string())))
+            } else if current_token_value.starts_with(":") {
+                Ok(MalAtom(KeyWord(current_token_value.to_string())))
             } else if current_token_value.starts_with("\"") {
                 Err("EOF".to_string())
             } else {
-                Ok(MalType::MalSymbol(current_token_value.to_string()))
+                Ok(MalAtom(Symbol(current_token_value.to_string())))
             }
         }
     }
